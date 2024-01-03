@@ -39,6 +39,7 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'rest_framework',
+    'tracker',
 ]
 
 MIDDLEWARE = [
@@ -144,3 +145,10 @@ CHANNEL_LAYERS = {
     },
 }
 
+REST_FRAMEWORK = {
+    'DEFAULT_AUTHENTICATION_CLASSES': (
+        'core.authentication.JWTAuthentication',
+    )
+}
+
+AUTH_USER_MODEL = 'tracker.User'
