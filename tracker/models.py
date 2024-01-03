@@ -1,14 +1,18 @@
 from django.db import models
 import uuid
-from django.contrib.auth.models import AbstractBaseUser, BaseUserManager,PermissionsMixin
+from django.contrib.auth.models import (
+    AbstractBaseUser,
+    BaseUserManager,
+    PermissionsMixin,
+)
 from rest_framework_simplejwt.tokens import RefreshToken
 from core.behaviours import TimeStampable
 
-class UserManager(BaseUserManager):
 
+class UserManager(BaseUserManager):
     def create_user(self, email, password=None, **extra_fields):
         if not email:
-            raise ValueError('Users must have an email address')
+            raise ValueError("Users must have an email address")
         user = self.model(email=self.normalize_email(email), **extra_fields)
         user.set_password(password)
         user.save()
@@ -19,7 +23,7 @@ class UserManager(BaseUserManager):
         user.is_staff = True
         user.is_superuser = True
         user.is_active = True
-        user.save(update_fields=['is_staff', 'is_superuser', 'is_active'])
+        user.save(update_fields=["is_staff", "is_superuser", "is_active"])
         return user
 
 
@@ -31,7 +35,7 @@ class User(AbstractBaseUser, PermissionsMixin):
 
     objects = UserManager()
 
-    USERNAME_FIELD = 'email'
+    USERNAME_FIELD = "email"
 
     def generate_token(self):
         refresh = RefreshToken.for_user(self)
@@ -39,31 +43,46 @@ class User(AbstractBaseUser, PermissionsMixin):
 
     def tokens(self):
         refresh, access = self.generate_token()
-        return {
-            'refresh': refresh,
-            'access': access
-        }
+        return {"refresh": refresh, "access": access}
 
     def refresh(self):
         refresh, _ = self.generate_token()
         return refresh
-    
+
     def access(self):
         _, access = self.generate_token()
         return access
 
+
 COIN_ALERT_STATUS = (
-    ('untriggered', 'UNTRIGGERED'),
-    ('triggered', 'TRIGGERED'),
+    ("untriggered", "UNTRIGGERED"),
+    ("triggered", "TRIGGERED"),
 )
+
+class CoinSymbol(models.Model):
+    symbol = models.CharField(max_length=255, unique=True)
+    external_id = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
+    coin_alert = models.ForeignKey("CoinAlert", related_name="coin_alert")
+
+    def __str__(self):
+        return self.symbol
+
 
 class CoinAlert(TimeStampable, models.Model):
     external_id = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
-    status = models.CharField(choices=COIN_ALERT_STATUS, max_length=20, default=COIN_ALERT_STATUS[0][0])
+    status = models.CharField(
+        choices=COIN_ALERT_STATUS, max_length=20, default=COIN_ALERT_STATUS[0][0]
+    )
+    user = models.ForeignKey(
+        User, on_delete=models.CASCADE, related_name="coin_alert_user"
+    )
+    coin_symbol = models.CharField(max_length=255)
+    threshold_price = models.FloatField()
+
 
 class OTP(TimeStampable, models.Model):
     otp = models.IntegerField()
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="otp_user")
-    
+
     def __str__(self):
         return f"{self.otp_email} : {self.otp}"
