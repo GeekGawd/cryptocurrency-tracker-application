@@ -82,3 +82,10 @@ class AlertSerializer(serializers.ModelSerializer):
         ).exists():
             raise ValidationError({"message": "Coin Alert already exists"})
         return super().create(validated_data)
+
+class ListAlertSerializer(serializers.ModelSerializer):
+    coin_symbol = serializers.ReadOnlyField(source="coin_symbol.symbol")
+    class Meta:
+        model = CoinAlert
+        fields = ["threshold_price", "buy_or_sell", "status", "external_id", "coin_symbol"]
+        read_only_fields = ["threshold_price", "buy_or_sell", "status", "external_id"]

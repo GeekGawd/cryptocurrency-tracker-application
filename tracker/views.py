@@ -2,10 +2,15 @@ from rest_framework.generics import GenericAPIView
 from rest_framework.response import Response
 from rest_framework import generics, status, mixins
 from tracker.models import *
-from tracker.serializers import UserSerializer, AlertSerializer
+from tracker.serializers import UserSerializer, AlertSerializer, ListAlertSerializer
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.exceptions import NotFound
+from rest_framework.pagination import CursorPagination
+from django.views.decorators.cache import cache_page
+from django.utils.decorators import method_decorator
+from django.conf import settings
+from django.db.models import F
 
 # Create your views here.
 
@@ -69,18 +74,23 @@ class CreateAlertView(GenericAPIView, mixins.CreateModelMixin):
     def post(self, request, *args, **kwargs):
         return super().create(request, *args, **kwargs)
 
+class CustomCursorPagination(CursorPagination):
+    ordering = "-created_at"
+    page_size = 10
 
 class ListAlertView(GenericAPIView, mixins.ListModelMixin):
-    serializer_class = AlertSerializer
+    serializer_class = ListAlertSerializer
     permission_classes = [IsAuthenticated]
+    pagination_class = CustomCursorPagination
 
     def get_queryset(self):
         status = self.request.query_params.get("status", None)
-        coins = CoinAlert.objects.filter(user=self.request.user)
+        coins = CoinAlert.objects.filter(user=self.request.user).prefetch_related("coin_symbol")
         if status is not None:
             coins = coins.filter(status=status)
         return coins
 
+    @method_decorator(cache_page(settings.LIST_CACHE_TTL))
     def get(self, request, *args, **kwargs):
         return super().list(request, *args, **kwargs)
 

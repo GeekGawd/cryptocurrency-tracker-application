@@ -150,15 +150,6 @@ EMAIL_USE_TLS = True
 
 CSRF_TRUSTED_ORIGINS = ['https://*.ngrok-free.app','https://*.127.0.0.1']
 
-CHANNEL_LAYERS = {
-    'default': {
-        'BACKEND': 'channels_redis.core.RedisChannelLayer',
-        'CONFIG': {
-            "hosts": [('127.0.0.1', 6379)],
-        },
-    },
-}
-
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': (
         'core.authentication.JWTAuthentication',
@@ -198,9 +189,18 @@ SIMPLE_JWT = {
     'SLIDING_TOKEN_REFRESH_LIFETIME': timedelta(days=1),
 }
 
-KAFKA_BOOTSTRAP_SERVER = "localhost:9093"
+KAFKA_BOOTSTRAP_SERVER = config("KAFKA_BOOTSTRAP_SERVER", default="localhost:9093")
 
 # How many messages to process at a time with Kafka
 KAFKA_BATCH_SIZE = 1000
 
 ASGI_APPLICATION = "core.asgi.application"
+
+CACHES = {
+    "default": {
+        "BACKEND": "django.core.cache.backends.redis.RedisCache",
+        "LOCATION": config("REDIS_URL", default="redis://localhost:6379"),
+    }
+}
+
+LIST_CACHE_TTL = 60 # 1 minute
