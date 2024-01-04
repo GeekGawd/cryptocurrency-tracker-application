@@ -78,10 +78,22 @@ WSGI_APPLICATION = 'core.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/5.0/ref/settings/#databases
 
+# DATABASES = {
+#     'default': {
+#         'ENGINE': 'django.db.backends.sqlite3',
+#         'NAME': BASE_DIR / 'db.sqlite3',
+#     }
+# }
+
+# Use POSTGRES DB
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
+        'ENGINE': 'django.db.backends.postgresql',
+        'NAME': config("POSTGRES_DB_NAME", default="tanxfi"),
+        'USER': config("POSTGRES_DB_USER", default="postgres"),
+        'PASSWORD': config("POSTGRES_DB_PASSWORD", default="admin"),
+        'HOST': config("POSTGRES_DB_HOST", default="localhost"),
+        'PORT': config("POSTGRES_DB_PORT", default="5432"),
     }
 }
 
@@ -185,5 +197,10 @@ SIMPLE_JWT = {
     'SLIDING_TOKEN_LIFETIME': timedelta(minutes=5),
     'SLIDING_TOKEN_REFRESH_LIFETIME': timedelta(days=1),
 }
+
+KAFKA_BOOTSTRAP_SERVER = "localhost:9093"
+
+# How many messages to process at a time with Kafka
+KAFKA_BATCH_SIZE = 1000
 
 ASGI_APPLICATION = "core.asgi.application"

@@ -1,7 +1,7 @@
 from rest_framework.exceptions import ValidationError
 import re
 from django.utils.translation import gettext_lazy as _
-from tracker.models import User, CoinAlert
+from tracker.models import User, CoinAlert, CoinSymbol
 from rest_framework import serializers
 import requests
 
@@ -62,25 +62,23 @@ class UserSerializer(serializers.ModelSerializer):
 class AlertSerializer(serializers.ModelSerializer):
     class Meta:
         model = CoinAlert
-        exclude = ["id", "user"]
+        exclude = ["id", "user", "coin_symbol"]
         read_only_fields = ["status", "user"]
-
-    def validate_coin_symbol(self, value):
-        url = f"https://api.binance.com/api/v3/ticker/price?symbol={value}USDT"
-        response = requests.get(url)
-        if response.status_code >= 400:
-            raise serializers.ValidationError(
-                "Invalid coin symbol, Please Refer to Binance API for valid symbols"
-            )
-        return value
 
     def create(self, validated_data):
         validated_data["user"] = self.context["request"].user
+        coin_symbol_text = self.initial_data["coin_symbol"]
+        try:
+            coin_symbol = CoinSymbol.objects.get(symbol__iexact=coin_symbol_text)
+        except CoinSymbol.DoesNotExist:
+            raise ValidationError({"message": "Coin Symbol does not exist"})
+        validated_data["coin_symbol"] = coin_symbol
         if CoinAlert.objects.filter(
+            coin_symbol = coin_symbol,
             user=validated_data["user"],
-            coin_symbol=validated_data["coin_symbol"],
             threshold_price=validated_data["threshold_price"],
-            status="untriggered"
+            status="untriggered",
+            buy_or_sell=validated_data["buy_or_sell"],
         ).exists():
             raise ValidationError({"message": "Coin Alert already exists"})
         return super().create(validated_data)

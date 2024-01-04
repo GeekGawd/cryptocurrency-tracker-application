@@ -4,7 +4,7 @@ from rest_framework import generics, status, mixins
 from tracker.models import *
 from tracker.serializers import UserSerializer, AlertSerializer
 from rest_framework.response import Response
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.exceptions import NotFound
 
 # Create your views here.
@@ -17,6 +17,7 @@ class HelloWorld(GenericAPIView):
 
 class CreateUserView(generics.GenericAPIView, mixins.CreateModelMixin):
     serializer_class = UserSerializer
+    permission_classes = [AllowAny]
 
     def post(self, request, *args, **kwargs):
         email = request.data.get("email", None)
@@ -35,6 +36,8 @@ class CreateUserView(generics.GenericAPIView, mixins.CreateModelMixin):
 
 
 class LoginAPIView(GenericAPIView):
+    permission_classes = [AllowAny]
+
     def post(self, request, *args, **kwargs):
         email = request.data.get("email", None)
         password = request.data.get("password", None)
@@ -91,6 +94,6 @@ class DeleteAlertView(GenericAPIView, mixins.DestroyModelMixin):
             return CoinAlert.objects.get(external_id=uuid)
         except CoinAlert.DoesNotExist:
             raise NotFound({"message": "Alert not found"})
-        
+
     def delete(self, request, *args, **kwargs):
         return super().destroy(request, *args, **kwargs)

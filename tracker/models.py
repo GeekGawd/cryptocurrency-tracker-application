@@ -1,3 +1,4 @@
+import requests
 from django.db import models
 import uuid
 from django.contrib.auth.models import (
@@ -7,6 +8,8 @@ from django.contrib.auth.models import (
 )
 from rest_framework_simplejwt.tokens import RefreshToken
 from core.behaviours import TimeStampable
+from django.core.exceptions import ValidationError
+from django.core.mail import EmailMessage
 
 
 class UserManager(BaseUserManager):
@@ -57,18 +60,39 @@ class User(AbstractBaseUser, PermissionsMixin):
 COIN_ALERT_STATUS = (
     ("untriggered", "UNTRIGGERED"),
     ("triggered", "TRIGGERED"),
+    ("mail_sent", "MAIL_SENT"),
 )
 
 class CoinSymbol(models.Model):
     symbol = models.CharField(max_length=255, unique=True)
+    kafka_topic = models.CharField(max_length=255, unique=True, blank=True, null=True)
     external_id = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
-    coin_alert = models.ForeignKey("CoinAlert", related_name="coin_alert")
 
     def __str__(self):
         return self.symbol
 
+    def clean(self) -> None:
+        response = requests.get(
+            f"https://api.binance.com/api/v3/ticker/price?symbol={self.symbol.upper()}USDT"
+        )
+        if response.status_code >= 400:
+            raise ValidationError(
+                {"symbol": "Invalid symbol, Refer the Binanace API for valid symbols"}
+            )
 
+    def save(self, *args, **kwargs):
+        if not self.kafka_topic:
+            self.kafka_topic = f"{self.symbol}-topic"
+        super().save(*args, **kwargs)
+
+COIN_ALERT_INTENTION = (
+    ("buy", "BUY"),
+    ("sell", "SELL"),
+)
 class CoinAlert(TimeStampable, models.Model):
+    coin_symbol = models.ForeignKey(
+        CoinSymbol, on_delete=models.CASCADE, related_name="coin_symbol"
+    )
     external_id = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
     status = models.CharField(
         choices=COIN_ALERT_STATUS, max_length=20, default=COIN_ALERT_STATUS[0][0]
@@ -76,13 +100,16 @@ class CoinAlert(TimeStampable, models.Model):
     user = models.ForeignKey(
         User, on_delete=models.CASCADE, related_name="coin_alert_user"
     )
-    coin_symbol = models.CharField(max_length=255)
     threshold_price = models.FloatField()
+    buy_or_sell = models.CharField(
+        choices=COIN_ALERT_INTENTION, max_length=20
+    )
 
-
-class OTP(TimeStampable, models.Model):
-    otp = models.IntegerField()
-    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="otp_user")
-
-    def __str__(self):
-        return f"{self.otp_email} : {self.otp}"
+    @property
+    def alert_email(self) -> EmailMessage:
+        coin_symbol = self.coin_symbol.symbol
+        return EmailMessage(
+            subject=f"Alert for {coin_symbol}",
+            body=f"Alert for {coin_symbol} has been triggered for price {self.threshold_price} and intention {self.buy_or_sell}",
+            to=[self.user.email],
+        )
