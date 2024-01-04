@@ -1,5 +1,13 @@
-# Dockerfile
-FROM docker.io/bitnami/kafka:3.3
+FROM python:3.11-slim
 
-# Install kcat
-RUN apt-get install kafkacat
+ENV PYTHONUNBUFFERED 1
+
+WORKDIR /app
+
+COPY . /app/
+
+RUN pip install --no-cache-dir -r requirements.txt
+
+EXPOSE 8000
+
+CMD ["sh", "-c", "python manage.py runserver 0.0.0.0:8000"]
