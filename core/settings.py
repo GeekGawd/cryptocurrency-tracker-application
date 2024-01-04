@@ -25,7 +25,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = config("SECRET_KEY")
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = config("DEBUG", default=True, cast=bool)
 
 ALLOWED_HOSTS = [config("ALLOWED_HOSTS", default="*")]
 
@@ -192,7 +192,7 @@ SIMPLE_JWT = {
 KAFKA_BOOTSTRAP_SERVER = config("KAFKA_BOOTSTRAP_SERVER", default="localhost:9093")
 
 # How many messages to process at a time with Kafka
-KAFKA_BATCH_SIZE = 1000
+KAFKA_BATCH_SIZE = 100
 
 ASGI_APPLICATION = "core.asgi.application"
 

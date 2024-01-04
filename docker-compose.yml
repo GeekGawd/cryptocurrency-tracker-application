@@ -1,6 +1,100 @@
-# docker-compose.yml
 version: "3.7"
 services:
+
+  django-server:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    env_file:
+    - .env
+    command: >
+      sh -c "python manage.py migrate &&
+             python manage.py runserver 0.0.0.0:8000"
+    links:
+      - redis:redis
+      - db:db
+      - kafka:kafka
+      - zookeeper:zookeeper
+    depends_on:
+      - db
+      - redis
+    volumes:
+      - .:/app
+    ports:
+      - "8000:8000"
+    environment:
+      - DEBUG=true
+      - REDIS_URL=redis://redis:6379/0
+      - POSTGRES_DB_HOST=db
+      - POSTGRES_DB_PORT=5432
+      - KAFKA_BOOTSTRAP_SERVER=kafka:9092
+
+  django-kafka:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    env_file:
+    - .env
+    command: >
+      sh -c "python manage.py wait_for_db &&
+             python manage.py migrate &&
+             python manage.py kafka"
+    depends_on:
+      - db
+      - redis
+      - django-server
+    links:
+      - redis:redis
+      - db:db
+      - kafka:kafka
+      - zookeeper:zookeeper
+    environment:
+      - DEBUG=true
+      - POSTGRES_DB_HOST=db
+      - POSTGRES_DB_PORT=5432
+      - KAFKA_BOOTSTRAP_SERVER=kafka:9092
+      - BACKGROUND_TASKS=False
+  
+  django-consumer:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    env_file:
+    - .env
+    command: >
+      sh -c "python manage.py wait_for_db &&
+             python manage.py migrate &&
+             python manage.py consumer"
+    links:
+      - redis:redis
+      - db:db
+      - kafka:kafka
+      - zookeeper:zookeeper
+    depends_on:
+      - db
+      - redis
+      - django-server
+    environment:
+      - DEBUG=true
+      - POSTGRES_DB_HOST=db
+      - POSTGRES_DB_PORT=5432
+      - KAFKA_BOOTSTRAP_SERVER=kafka:9092
+      - BACKGROUND_TASKS=False
+
+  db:
+    image: postgres:15
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_DB=tanxfi
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=admin
+
+  redis:
+    image: redis:5.0
+    ports:
+      - "6379:6379"
+
   zookeeper:
     restart: always
     image: docker.io/bitnami/zookeeper:3.8
@@ -27,13 +121,7 @@ services:
       - KAFKA_CFG_INTER_BROKER_LISTENER_NAME=CLIENT
     depends_on:
       - zookeeper
-  kcat:
-    image: edenhill/kcat:1.7.0
-    command: "-f /dev/null"
-    entrypoint: /usr/bin/tail
-    tty: true
-    depends_on:
-      - kafka
+
 volumes:
   kafka-volume:
   zookeeper-volume:
